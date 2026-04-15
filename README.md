@@ -69,29 +69,86 @@ npm run build
 ### 生成示例
 
 ```markdown
-# Design System - Vercel
+
+# Design System - Apple Store 在线商店
 
 ## 1. Visual Theme & Atmosphere
-Minimal, precise, black and white aesthetic...
+The design philosophy is rooted in Apple’s "Human Interface Guidelines," emphasizing clarity, deference, and depth. The mood is premium, minimalist, and highly structured. It utilizes a high-density of white space to focus attention on high-quality product imagery. The interface feels "airy" yet precise, with a sophisticated balance between light gray backgrounds and crisp typography.
 
 ## 2. Color Palette & Roles
 | Color Name | Hex Code | Usage |
 |------------|----------|-------|
-| Black | #000000 | Primary background |
-| White | #FFFFFF | Text and borders |
+| Jet Black | #1d1d1f | Primary text, headings, and core UI elements |
+| Pure Black | #000000 | Deepest contrast, footer backgrounds, or specific product text |
+| Pure White | #ffffff | Primary background for product sections and cards |
+| Off White | #fafafc | Subtle background differentiation for secondary sections |
+| System Gray | #f5f5f7 | Large section backgrounds and container fills |
+| Secondary Text | #6e6e73 | Subtitles, captions, and less emphasized information |
+| Tertiary Text | #86868b | Placeholder text, legal disclaimers, and breadcrumbs |
+| Link Blue | #0066cc | Hyperlinks and interactive text elements |
+| System Blue | #007aff | Primary call-to-action buttons and active states |
+| Border Gray | #cccccc | Subtle dividers and input borders |
+| Accent Purple | #ac39ff | Promotional highlights or specific product category accents |
+| Success Green | #008009 | Availability status and positive confirmations |
+| Loading Pink | #f78fb6 | Specific loading state indicators (CSS Variable) |
 
 ## 3. Typography Rules
-- **Primary Font**: Inter
-- **Fallback**: system-ui, sans-serif
-- **Scale**: h1: 48px, h2: 36px...
+- **Primary Font**: SF Pro SC, SF Pro Display, SF Pro Text
+- **Fallback**: PingFang SC (for Chinese characters), Helvetica Neue, Arial, sans-serif
+- **Scale**:
+    - **H1 (Hero)**: 48px - 56px / Bold (Tracking: -0.009em)
+    - **H2 (Section)**: 40px / Semibold
+    - **H3 (Subhead)**: 28px - 32px / Semibold
+    - **Body (Large)**: 19px - 21px / Regular
+    - **Body (Standard)**: 17px / Regular
+    - **Caption**: 12px - 14px / Medium
 
 ## 4. Component Stylings
 ### Buttons
-Minimal, no border-radius, high contrast...
+- **Primary**: Pill-shaped (rounded-full), background #007aff, text #ffffff. Hover state involves a slight darkening or opacity shift.
+- **Secondary/Ghost**: Pill-shaped, transparent background with #0066cc border or simple blue text with a chevron icon.
+- **Size**: Standard height is 36px for small, 44px for medium/large.
+
+### Cards
+- **Product Cards**: Soft rounded corners (approx. 18px - 22px). Background is usually #ffffff or #f5f5f7.
+- **Shadows**: Very subtle low-blur shadows or no shadow at all, relying on background color shifts to define boundaries.
+- **Hover**: Subtle scale-up effect (1.02x) or increased shadow depth to indicate interactivity.
+
+### Inputs
+- **Text Fields**: 12px border-radius, #cccccc border, 17px font size for readability.
+- **Focus State**: 2px blue ring or darkened border with high contrast.
 
 ## 5. Layout Principles
-- **Grid**: 12-column, 1440px max-width
-- **Spacing Scale**: 4px base unit...
+- **Grid**: 12-column fluid grid for desktop, 4-column for mobile.
+- **Spacing Scale**: Increments of 8px (8, 16, 24, 32, 40, 48, 64, 80, 120).
+- **Max Width**: Standard content container is 980px or 1200px depending on the viewport width.
+- **Gutter**: 20px on mobile, 30px+ on desktop.
+
+## 6. Depth & Elevation
+- **Z-Index Layers**: 
+    - Navigation: 9999 (Sticky)
+    - Modals/Overlays: 10000
+    - Content: 1-100
+- **Dividers**: 1px solid #d2d2d7, used sparingly to separate major logical sections.
+- **Blur**: Extensive use of `backdrop-filter: blur(20px)` on navigation bars to maintain context while scrolling.
+
+## 7. Do's and Don'ts
+### Do's
+- Use high-resolution, transparent PNGs for product shots.
+- Maintain generous padding around text blocks to ensure legibility.
+- Use "SF Pro SC" for a consistent brand voice across Chinese and English text.
+- Align text to the center for hero sections and left for informational grids.
+
+### Don'ts
+- Do not use harsh drop shadows or heavy gradients.
+- Avoid using more than two different font weights in a single component.
+- Do not use pure red for errors; use a refined #e30000 or similar brand-safe warning tones.
+- Avoid cluttering the interface with too many competing calls-to-action.
+
+## 8. Responsive Behavior
+- **Desktop (>1068px)**: Full 12-column layout, horizontal scrolling for product carousels.
+- **Tablet (734px - 1068px)**: Reduced margins, font sizes scale down slightly, grid collapses to 2-3 columns for cards.
+- **Mobile (<734px)**: Single column layout, navigation transforms into a hamburger menu, touch targets increased to minimum 44x44px. Horizontal carousels allow for "peek" of the next card to indicate scrollability.
 ```
 
 ---
