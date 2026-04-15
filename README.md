@@ -2,6 +2,10 @@
 
 一个 Chrome 扩展，可以从任意网页提取设计系统规范，使用 Gemini AI 生成 Stitch 格式的 DESIGN.md 文件。
 
+## 🙏 致谢
+
+本项目灵感来源于 [VoltAgent/awesome-design-md](https://github.com/VoltAgent/awesome-design-md)，一个收集了 66+ 优秀设计系统 DESIGN.md 的项目。
+
 ## 功能特点
 
 - 从任意网页提取设计系统
