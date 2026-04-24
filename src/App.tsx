@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { useStore } from './store';
+import { type AppError, useStore } from './store';
 import { addToHistory as saveHistory, loadFromStorage } from './lib/storage';
-import { generateDesignMd } from './lib/gemini';
+import { DesignMdGenerationError, generateDesignMd } from './lib/gemini';
 import Settings from './components/Settings';
 import ResultPanel from './components/ResultPanel';
 import History from './components/History';
@@ -13,10 +13,20 @@ interface ExtractedStylePayload {
   colors: string[];
   fonts: string[];
   cssVariables: Record<string, string>;
+  spacingScale: string[];
+  borderRadiusScale: string[];
+  shadowStyles: string[];
+  layoutHints: {
+    maxWidthCandidates: string[];
+    gapScale: string[];
+  };
+  buttons: Array<Record<string, string>>;
+  inputs: Array<Record<string, string>>;
+  surfaces: Array<Record<string, string>>;
 }
 
 interface BackgroundMessageResponse<T> {
-  error?: string;
+  error?: AppError;
   tab?: chrome.tabs.Tab;
   payload?: T;
 }
@@ -34,9 +44,48 @@ const isExtractedStylePayload = (
     typeof candidate.title === 'string' &&
     Array.isArray(candidate.colors) &&
     Array.isArray(candidate.fonts) &&
+    Array.isArray(candidate.spacingScale) &&
+    Array.isArray(candidate.borderRadiusScale) &&
+    Array.isArray(candidate.shadowStyles) &&
     typeof candidate.cssVariables === 'object' &&
-    candidate.cssVariables !== null
+    candidate.cssVariables !== null &&
+    typeof candidate.layoutHints === 'object' &&
+    candidate.layoutHints !== null &&
+    Array.isArray(candidate.buttons) &&
+    Array.isArray(candidate.inputs) &&
+    Array.isArray(candidate.surfaces)
   );
+};
+
+const normalizeAppError = (error: unknown): AppError => {
+  if (error instanceof DesignMdGenerationError) {
+    return {
+      code: error.code,
+      message: error.message,
+      suggestion: error.suggestion,
+    };
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const candidate = error as Partial<AppError>;
+    return {
+      code: candidate.code || 'unknown_error',
+      message: candidate.message || 'Unknown error',
+      suggestion: candidate.suggestion,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      code: 'unknown_error',
+      message: error.message,
+    };
+  }
+
+  return {
+    code: 'unknown_error',
+    message: 'Analysis failed',
+  };
 };
 
 const pingBackground = (): Promise<boolean> => {
@@ -144,7 +193,11 @@ function App() {
     }
 
     if (!isReady) {
-      setError('Extension not ready. Please try again or reload the extension.');
+      setError({
+        code: 'extension_not_ready',
+        message: 'Extension not ready.',
+        suggestion: 'Reload the extension and try again.',
+      });
       return;
     }
 
@@ -160,7 +213,7 @@ function App() {
         >({ type: 'GET_ACTIVE_TAB' });
 
         if (response?.error) {
-          throw new Error(response.error);
+          throw response.error;
         }
 
         if (!response?.tab?.id) {
@@ -178,12 +231,16 @@ function App() {
       });
 
       if (extractionResponse?.error) {
-        throw new Error(extractionResponse.error);
+        throw extractionResponse.error;
       }
 
       const extractedStyle = extractionResponse?.payload;
       if (!isExtractedStylePayload(extractedStyle)) {
-        throw new Error('Failed to extract styles. Make sure you are on a webpage.');
+        throw {
+          code: 'invalid_extraction_payload',
+          message: 'Failed to extract styles from the current page.',
+          suggestion: 'Reload the page and try again.',
+        } satisfies AppError;
       }
 
       const content = await generateDesignMd(currentKey, extractedStyle);
@@ -201,7 +258,7 @@ function App() {
       await saveHistory(result);
     } catch (err) {
       console.error('Analysis error:', err);
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      setError(normalizeAppError(err));
     } finally {
       setIsAnalyzing(false);
     }
@@ -262,9 +319,14 @@ function App() {
 
         {/* Error Display */}
         {error && (
-          <div className="mb-4 p-3 bg-neutral-900 border border-neutral-800 rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-            <p className="text-xs text-red-400">{error}</p>
+          <div className="mb-4 p-3 bg-neutral-900 border border-neutral-800 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs text-red-400">{error.message}</p>
+              {error.suggestion && (
+                <p className="mt-1 text-xs text-neutral-500">{error.suggestion}</p>
+              )}
+            </div>
           </div>
         )}
 

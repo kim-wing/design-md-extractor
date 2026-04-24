@@ -1,5 +1,59 @@
 // Content Script - Extract page styles
 
+function toHex(color) {
+  const rgbMatch = color.match(/^rgba?\(([^)]+)\)$/);
+  if (!rgbMatch) {
+    return color;
+  }
+
+  const channels = rgbMatch[1]
+    .split(',')
+    .slice(0, 3)
+    .map((value) => Number.parseInt(value.trim(), 10))
+    .filter((value) => !Number.isNaN(value));
+
+  if (channels.length !== 3) {
+    return color;
+  }
+
+  return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function normalizeColor(color) {
+  const trimmed = color.trim();
+  if (trimmed.startsWith('rgb')) {
+    return toHex(trimmed).toUpperCase();
+  }
+  if (/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(trimmed)) {
+    if (trimmed.length === 4) {
+      return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`.toUpperCase();
+    }
+    return trimmed.toUpperCase();
+  }
+  return trimmed;
+}
+
+function getPxValue(value) {
+  const match = String(value).match(/-?\d+(\.\d+)?/);
+  if (!match) {
+    return null;
+  }
+
+  const numeric = Number.parseFloat(match[0]);
+  return Number.isFinite(numeric) ? Math.round(numeric) : null;
+}
+
+function getTopEntries(counter, limit) {
+  return Array.from(counter.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([value]) => value);
+}
+
+function incrementCounter(counter, value) {
+  counter.set(value, (counter.get(value) || 0) + 1);
+}
+
 function isValidColor(color) {
   if (!color || color === 'transparent' || color === 'inherit' || color === 'initial') {
     return false;
@@ -10,35 +64,35 @@ function isValidColor(color) {
 }
 
 function getUniqueColors(elements) {
-  const colorSet = new Set();
+  const colorCounter = new Map();
 
   elements.slice(0, 400).forEach((el) => {
     const style = window.getComputedStyle(el);
     const bgColor = style.backgroundColor;
     const color = style.color;
     
-    if (isValidColor(bgColor)) colorSet.add(bgColor);
-    if (isValidColor(color)) colorSet.add(color);
+    if (isValidColor(bgColor)) incrementCounter(colorCounter, normalizeColor(bgColor));
+    if (isValidColor(color)) incrementCounter(colorCounter, normalizeColor(color));
     
     const borderColor = style.borderColor;
-    if (isValidColor(borderColor)) colorSet.add(borderColor);
+    if (isValidColor(borderColor)) incrementCounter(colorCounter, normalizeColor(borderColor));
   });
   
-  return Array.from(colorSet).slice(0, 20);
+  return getTopEntries(colorCounter, 20);
 }
 
 function getUniqueFonts(elements) {
-  const fontSet = new Set();
+  const fontCounter = new Map();
 
   elements.slice(0, 400).forEach((el) => {
     const style = window.getComputedStyle(el);
     const fontFamily = style.fontFamily;
     if (fontFamily && fontFamily !== 'inherit') {
-      fontSet.add(fontFamily);
+      incrementCounter(fontCounter, fontFamily);
     }
   });
   
-  return Array.from(fontSet).slice(0, 10);
+  return getTopEntries(fontCounter, 10);
 }
 
 function extractCssVariables() {
@@ -57,6 +111,70 @@ function extractCssVariables() {
   });
 
   return variables;
+}
+
+function collectScale(elements, styleKeys, maxValue) {
+  const counter = new Map();
+
+  elements.slice(0, 400).forEach((el) => {
+    const style = window.getComputedStyle(el);
+    styleKeys.forEach((key) => {
+      const numeric = getPxValue(style[key]);
+      if (numeric && numeric > 0 && numeric <= maxValue) {
+        incrementCounter(counter, `${numeric}px`);
+      }
+    });
+  });
+
+  return getTopEntries(counter, 8);
+}
+
+function summarizeStyle(style) {
+  return {
+    backgroundColor: isValidColor(style.backgroundColor) ? normalizeColor(style.backgroundColor) : 'transparent',
+    textColor: isValidColor(style.color) ? normalizeColor(style.color) : 'inherit',
+    borderColor: isValidColor(style.borderColor) ? normalizeColor(style.borderColor) : 'transparent',
+    borderRadius: style.borderRadius,
+    boxShadow: style.boxShadow,
+    padding: `${style.paddingTop} ${style.paddingRight} ${style.paddingBottom} ${style.paddingLeft}`,
+    fontFamily: style.fontFamily,
+    fontSize: style.fontSize,
+    fontWeight: style.fontWeight,
+  };
+}
+
+function collectComponentSummaries(selectors, limit) {
+  return Array.from(document.querySelectorAll(selectors))
+    .slice(0, limit)
+    .map((element) => summarizeStyle(window.getComputedStyle(element)))
+    .filter((style, index, styles) =>
+      styles.findIndex((candidate) => JSON.stringify(candidate) === JSON.stringify(style)) === index
+    )
+    .slice(0, 4);
+}
+
+function extractLayoutHints(elements) {
+  const widthCounter = new Map();
+  const gapCounter = new Map();
+
+  elements.slice(0, 250).forEach((el) => {
+    const style = window.getComputedStyle(el);
+    const maxWidth = getPxValue(style.maxWidth);
+    const gap = getPxValue(style.gap) || getPxValue(style.columnGap) || getPxValue(style.rowGap);
+
+    if (maxWidth && maxWidth >= 320 && maxWidth <= 1600) {
+      incrementCounter(widthCounter, `${maxWidth}px`);
+    }
+
+    if (gap && gap <= 120) {
+      incrementCounter(gapCounter, `${gap}px`);
+    }
+  });
+
+  return {
+    maxWidthCandidates: getTopEntries(widthCounter, 5),
+    gapScale: getTopEntries(gapCounter, 6),
+  };
 }
 
 function extractPageStyles() {
@@ -95,6 +213,37 @@ function extractPageStyles() {
     colors: getUniqueColors(elements),
     fonts: getUniqueFonts(elements),
     cssVariables: extractCssVariables(),
+    spacingScale: collectScale(elements, [
+      'marginTop',
+      'marginBottom',
+      'paddingTop',
+      'paddingBottom',
+      'paddingLeft',
+      'paddingRight',
+      'gap',
+      'rowGap',
+      'columnGap',
+    ], 160),
+    borderRadiusScale: collectScale(elements, [
+      'borderTopLeftRadius',
+      'borderTopRightRadius',
+      'borderBottomLeftRadius',
+      'borderBottomRightRadius',
+    ], 80),
+    shadowStyles: getTopEntries(
+      Array.from(elements.slice(0, 250)).reduce((counter, el) => {
+        const boxShadow = window.getComputedStyle(el).boxShadow;
+        if (boxShadow && boxShadow !== 'none') {
+          incrementCounter(counter, boxShadow);
+        }
+        return counter;
+      }, new Map()),
+      6
+    ),
+    layoutHints: extractLayoutHints(elements),
+    buttons: collectComponentSummaries('button, [role="button"], input[type="button"], input[type="submit"], a[class*="button"]', 12),
+    inputs: collectComponentSummaries('input, textarea, select', 12),
+    surfaces: collectComponentSummaries('main, section, article, aside, nav, [class*="card"], [class*="panel"]', 16),
   };
 }
 

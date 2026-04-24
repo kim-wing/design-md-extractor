@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DesignMdResult } from '../store';
 import { Copy, Download, Check } from 'lucide-react';
+import { buildDesignMdExports } from '../lib/designMd';
 
 interface ResultPanelProps {
   result: DesignMdResult;
@@ -9,6 +10,12 @@ interface ResultPanelProps {
 export default function ResultPanel({ result }: ResultPanelProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<number | null>(null);
+  const exports = buildDesignMdExports(result.content);
+  const activeOutput = {
+    label: 'Design Contract',
+    filename: 'design-contract.md',
+    content: exports.fullDesignContract,
+  };
 
   useEffect(() => {
     return () => {
@@ -20,7 +27,7 @@ export default function ResultPanel({ result }: ResultPanelProps) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(result.content);
+      await navigator.clipboard.writeText(activeOutput.content);
       setCopied(true);
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
@@ -32,11 +39,11 @@ export default function ResultPanel({ result }: ResultPanelProps) {
   };
 
   const handleDownload = () => {
-    const blob = new Blob([result.content], { type: 'text/markdown' });
+    const blob = new Blob([activeOutput.content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `DESIGN.md`;
+    a.download = activeOutput.filename;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -46,7 +53,7 @@ export default function ResultPanel({ result }: ResultPanelProps) {
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-800">
         <div>
-          <p className="text-sm font-medium text-white">DESIGN.md</p>
+          <p className="text-sm font-medium text-white">{activeOutput.label}</p>
           <p className="text-xs text-neutral-500 truncate max-w-[200px]">{result.url}</p>
         </div>
         <div className="flex gap-2">
@@ -81,7 +88,7 @@ export default function ResultPanel({ result }: ResultPanelProps) {
       {/* Content */}
       <div className="p-4">
         <pre className="text-xs text-neutral-400 overflow-x-auto max-h-80">
-          <code className="whitespace-pre-wrap leading-relaxed">{result.content}</code>
+          <code className="whitespace-pre-wrap leading-relaxed">{activeOutput.content}</code>
         </pre>
       </div>
     </div>

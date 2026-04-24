@@ -1,5 +1,9 @@
 // Background Service Worker for Chrome Extension
 
+function createError(code, message, suggestion) {
+  return { code, message, suggestion };
+}
+
 function isRestrictedUrl(url) {
   return (
     !url ||
@@ -15,13 +19,19 @@ function isRestrictedUrl(url) {
 function sendExtractMessage(tabId, sendResponse) {
   chrome.tabs.get(tabId, (tab) => {
     if (chrome.runtime.lastError) {
-      sendResponse({ error: chrome.runtime.lastError.message });
+      sendResponse({
+        error: createError('tab_lookup_failed', chrome.runtime.lastError.message, 'Reload the extension and try again.'),
+      });
       return;
     }
 
     if (isRestrictedUrl(tab?.url)) {
       sendResponse({
-        error: 'This page does not allow extension script injection. Open a normal website tab and try again.',
+        error: createError(
+          'restricted_page',
+          'This page does not allow extension script injection.',
+          'Open a normal website tab and try again.'
+        ),
       });
       return;
     }
@@ -32,7 +42,13 @@ function sendExtractMessage(tabId, sendResponse) {
           const message = chrome.runtime.lastError.message || 'Failed to contact content script';
 
           if (!message.includes('Receiving end does not exist')) {
-            sendResponse({ error: message });
+            sendResponse({
+              error: createError(
+                'content_script_unavailable',
+                message,
+                'Reload the tab and try again.'
+              ),
+            });
             return;
           }
 
@@ -44,7 +60,11 @@ function sendExtractMessage(tabId, sendResponse) {
             () => {
               if (chrome.runtime.lastError) {
                 sendResponse({
-                  error: 'Failed to inject extraction script into this page. Reload the tab and try again.',
+                  error: createError(
+                    'script_injection_failed',
+                    'Failed to inject extraction script into this page.',
+                    'Reload the tab and try again.'
+                  ),
                 });
                 return;
               }
@@ -52,12 +72,28 @@ function sendExtractMessage(tabId, sendResponse) {
               chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_STYLES' }, (retryResponse) => {
                 if (chrome.runtime.lastError) {
                   sendResponse({
-                    error: 'Failed to extract styles from this page. Reload the tab and try again.',
+                    error: createError(
+                      'extraction_retry_failed',
+                      'Failed to extract styles from this page.',
+                      'Reload the tab and try again.'
+                    ),
                   });
                 } else if (!retryResponse) {
-                  sendResponse({ error: 'No response from content script' });
+                  sendResponse({
+                    error: createError(
+                      'no_content_response',
+                      'No response from content script.',
+                      'Reload the tab and try again.'
+                    ),
+                  });
                 } else if (retryResponse.error) {
-                  sendResponse({ error: retryResponse.error });
+                  sendResponse({
+                    error: createError(
+                      'page_extraction_failed',
+                      retryResponse.error,
+                      'Wait for the page to finish loading, then try again.'
+                    ),
+                  });
                 } else {
                   sendResponse({ payload: retryResponse });
                 }
@@ -69,9 +105,21 @@ function sendExtractMessage(tabId, sendResponse) {
         }
 
         if (!response) {
-          sendResponse({ error: 'No response from content script' });
+          sendResponse({
+            error: createError(
+              'no_content_response',
+              'No response from content script.',
+              'Reload the tab and try again.'
+            ),
+          });
         } else if (response.error) {
-          sendResponse({ error: response.error });
+          sendResponse({
+            error: createError(
+              'page_extraction_failed',
+              response.error,
+              'Wait for the page to finish loading, then try again.'
+            ),
+          });
         } else {
           sendResponse({ payload: response });
         }
@@ -128,7 +176,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (tabs[0]) {
         sendResponse({ tab: tabs[0] });
       } else {
-        sendResponse({ error: 'No active tab' });
+        sendResponse({
+          error: createError('no_active_tab', 'No active tab found.', 'Focus a browser tab and try again.'),
+        });
       }
     });
     return true; // Keep channel open for async response

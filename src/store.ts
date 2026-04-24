@@ -8,12 +8,18 @@ export interface DesignMdResult {
   createdAt: number;
 }
 
+export interface AppError {
+  code: string;
+  message: string;
+  suggestion?: string;
+}
+
 interface AppState {
   apiKey: string;
   isAnalyzing: boolean;
   designMdResult: DesignMdResult | null;
   history: DesignMdResult[];
-  error: string | null;
+  error: AppError | null;
   
   setApiKey: (key: string) => void;
   setIsAnalyzing: (analyzing: boolean) => void;
@@ -22,7 +28,7 @@ interface AppState {
   addToHistory: (result: DesignMdResult) => void;
   removeHistoryItem: (id: string) => void;
   clearHistory: () => void;
-  setError: (error: string | null) => void;
+  setError: (error: AppError | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
