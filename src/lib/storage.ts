@@ -1,14 +1,10 @@
+import type { DesignMdResult } from '../store';
+
 const STORAGE_KEY = 'design-md-extension-storage';
 
 export interface StorageData {
   apiKey: string;
-  history: Array<{
-    id: string;
-    url: string;
-    title: string;
-    content: string;
-    createdAt: number;
-  }>;
+  history: DesignMdResult[];
 }
 
 // Check if running in Chrome extension environment
@@ -64,9 +60,21 @@ export async function setApiKey(key: string): Promise<void> {
 }
 
 export async function addToHistory(
-  item: StorageData['history'][0]
+  item: DesignMdResult
 ): Promise<void> {
   const data = await loadFromStorage();
   data.history = [item, ...data.history].slice(0, 20);
+  await saveToStorage(data);
+}
+
+export async function removeHistoryItem(id: string): Promise<void> {
+  const data = await loadFromStorage();
+  data.history = data.history.filter((item) => item.id !== id);
+  await saveToStorage(data);
+}
+
+export async function clearHistory(): Promise<void> {
+  const data = await loadFromStorage();
+  data.history = [];
   await saveToStorage(data);
 }

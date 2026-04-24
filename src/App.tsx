@@ -1,31 +1,81 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from './store';
-import { loadFromStorage } from './lib/storage';
+import { addToHistory as saveHistory, loadFromStorage } from './lib/storage';
 import { generateDesignMd } from './lib/gemini';
 import Settings from './components/Settings';
 import ResultPanel from './components/ResultPanel';
 import History from './components/History';
 import { AlertCircle } from 'lucide-react';
 
-// Ping background to ensure service worker is ready
+interface ExtractedStylePayload {
+  url: string;
+  title: string;
+  colors: string[];
+  fonts: string[];
+  cssVariables: Record<string, string>;
+}
+
+interface BackgroundMessageResponse<T> {
+  error?: string;
+  tab?: chrome.tabs.Tab;
+  payload?: T;
+}
+
+const isExtractedStylePayload = (
+  value: unknown
+): value is ExtractedStylePayload => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Partial<ExtractedStylePayload>;
+  return (
+    typeof candidate.url === 'string' &&
+    typeof candidate.title === 'string' &&
+    Array.isArray(candidate.colors) &&
+    Array.isArray(candidate.fonts) &&
+    typeof candidate.cssVariables === 'object' &&
+    candidate.cssVariables !== null
+  );
+};
+
 const pingBackground = (): Promise<boolean> => {
   return new Promise((resolve) => {
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
+    }, 2000);
+
     chrome.runtime.sendMessage({ type: 'PING' }, (resp) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      window.clearTimeout(timeoutId);
+
+      if (chrome.runtime.lastError) {
+        resolve(false);
+        return;
+      }
+
       resolve(resp === 'PONG');
     });
-    // Timeout after 2 seconds
-    setTimeout(() => resolve(false), 2000);
   });
 };
 
-// Retry wrapper for chrome.runtime.sendMessage
-const sendMessageWithRetry = (message: any, retries = 2): Promise<any> => {
+const sendMessageWithRetry = <T,>(
+  message: Record<string, unknown>,
+  retries = 2
+): Promise<T> => {
   return new Promise((resolve, reject) => {
     const attempt = (retriesLeft: number) => {
-      chrome.runtime.sendMessage(message, (resp) => {
+      chrome.runtime.sendMessage(message, (resp: T) => {
         if (chrome.runtime.lastError) {
           if (retriesLeft > 0) {
-            // Retry after a short delay
             setTimeout(() => attempt(retriesLeft - 1), 500);
           } else {
             reject(new Error(chrome.runtime.lastError.message));
@@ -43,22 +93,49 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isReady, setIsReady] = useState(false);
-  const { apiKey, setApiKey, isAnalyzing, setIsAnalyzing, designMdResult, setDesignMdResult, addToHistory, setError, error } = useStore();
+  const analyzeRef = useRef<(tabId?: number) => Promise<void>>(async () => {});
+  const {
+    apiKey,
+    setApiKey,
+    isAnalyzing,
+    setIsAnalyzing,
+    designMdResult,
+    setDesignMdResult,
+    setHistory,
+    addToHistory,
+    setError,
+    error,
+  } = useStore();
 
   useEffect(() => {
+    let isMounted = true;
+
     const init = async () => {
       const data = await loadFromStorage();
-      setApiKey(data.apiKey || '');
+      if (!isMounted) {
+        return;
+      }
 
-      // Wait for background to be ready
+      setApiKey(data.apiKey || '');
+      setHistory(data.history || []);
+
       const ready = await pingBackground();
+      if (!isMounted) {
+        return;
+      }
+
       setIsReady(ready);
       setIsLoading(false);
     };
-    init();
-  }, [setApiKey]);
 
-  const handleAnalyze = async () => {
+    init();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [setApiKey, setHistory]);
+
+  const analyze = async (preferredTabId?: number) => {
     const { apiKey: currentKey } = useStore.getState();
 
     if (!currentKey) {
@@ -75,22 +152,37 @@ function App() {
     setError(null);
 
     try {
-      // Get active tab
-      const response = await sendMessageWithRetry({ type: 'GET_ACTIVE_TAB' });
+      let tabId = preferredTabId;
 
-      if (!response?.tab?.id) {
-        throw new Error('No active tab found');
+      if (!tabId) {
+        const response = await sendMessageWithRetry<
+          BackgroundMessageResponse<never>
+        >({ type: 'GET_ACTIVE_TAB' });
+
+        if (response?.error) {
+          throw new Error(response.error);
+        }
+
+        if (!response?.tab?.id) {
+          throw new Error('No active tab found');
+        }
+
+        tabId = response.tab.id;
       }
 
-      const tab = response.tab;
-
-      // Extract styles from the tab
-      const extractedStyle = await sendMessageWithRetry({
+      const extractionResponse = await sendMessageWithRetry<
+        BackgroundMessageResponse<ExtractedStylePayload>
+      >({
         type: 'EXTRACT_FROM_TAB',
-        tabId: tab.id,
+        tabId,
       });
 
-      if (!extractedStyle) {
+      if (extractionResponse?.error) {
+        throw new Error(extractionResponse.error);
+      }
+
+      const extractedStyle = extractionResponse?.payload;
+      if (!isExtractedStylePayload(extractedStyle)) {
         throw new Error('Failed to extract styles. Make sure you are on a webpage.');
       }
 
@@ -106,8 +198,6 @@ function App() {
 
       setDesignMdResult(result);
       addToHistory(result);
-
-      const { addToHistory: saveHistory } = await import('./lib/storage');
       await saveHistory(result);
     } catch (err) {
       console.error('Analysis error:', err);
@@ -116,6 +206,21 @@ function App() {
       setIsAnalyzing(false);
     }
   };
+
+  analyzeRef.current = analyze;
+
+  useEffect(() => {
+    const listener = (message: { type?: string; tabId?: number }) => {
+      if (message.type === 'TRIGGER_ANALYZE_FROM_CONTEXT_MENU') {
+        void analyzeRef.current(message.tabId);
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(listener);
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -172,7 +277,7 @@ function App() {
 
         {/* Extract Button */}
         <button
-          onClick={handleAnalyze}
+          onClick={() => void analyze()}
           disabled={isAnalyzing || !apiKey}
           className="w-full py-3 px-4 bg-white text-black text-sm font-medium rounded-lg hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >

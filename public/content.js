@@ -11,8 +11,8 @@ function isValidColor(color) {
 
 function getUniqueColors(elements) {
   const colorSet = new Set();
-  
-  elements.forEach((el) => {
+
+  elements.slice(0, 400).forEach((el) => {
     const style = window.getComputedStyle(el);
     const bgColor = style.backgroundColor;
     const color = style.color;
@@ -29,8 +29,8 @@ function getUniqueColors(elements) {
 
 function getUniqueFonts(elements) {
   const fontSet = new Set();
-  
-  elements.forEach((el) => {
+
+  elements.slice(0, 400).forEach((el) => {
     const style = window.getComputedStyle(el);
     const fontFamily = style.fontFamily;
     if (fontFamily && fontFamily !== 'inherit') {
@@ -43,26 +43,48 @@ function getUniqueFonts(elements) {
 
 function extractCssVariables() {
   const variables = {};
-  
-  document.querySelectorAll('style').forEach((styleEl) => {
-    const cssText = styleEl.textContent || '';
-    const varMatches = cssText.match(/--[\w-]+:\s*[^;]+/g);
-    
-    varMatches?.forEach((match) => {
-      const parts = match.split(':').map((s) => s.trim());
-      const key = parts[0];
-      const value = parts.slice(1).join(':');
-      if (key && value) {
-        variables[key] = value;
-      }
-    });
+
+  const rootStyle = window.getComputedStyle(document.documentElement);
+  Array.from(rootStyle).forEach((propertyName) => {
+    if (!propertyName.startsWith('--')) {
+      return;
+    }
+
+    const value = rootStyle.getPropertyValue(propertyName).trim();
+    if (value) {
+      variables[propertyName] = value;
+    }
   });
-  
+
   return variables;
 }
 
 function extractPageStyles() {
-  const bodyElements = Array.from(document.body.querySelectorAll('*'));
+  if (!document.body) {
+    throw new Error('Page is not ready for extraction');
+  }
+
+  const selectors = [
+    'button',
+    'a',
+    'input',
+    'textarea',
+    'select',
+    'header',
+    'nav',
+    'main',
+    'section',
+    'article',
+    'aside',
+    'footer',
+    '[class]',
+  ];
+  const sampledElements = Array.from(
+    document.body.querySelectorAll(selectors.join(','))
+  );
+  const elements = sampledElements.length > 0
+    ? sampledElements
+    : Array.from(document.body.querySelectorAll('*'));
   
   const title = document.title || 'Unknown Page';
   const url = window.location.href;
@@ -70,8 +92,8 @@ function extractPageStyles() {
   return {
     url,
     title,
-    colors: getUniqueColors(bodyElements),
-    fonts: getUniqueFonts(bodyElements),
+    colors: getUniqueColors(elements),
+    fonts: getUniqueFonts(elements),
     cssVariables: extractCssVariables(),
   };
 }
@@ -79,8 +101,14 @@ function extractPageStyles() {
 // Listen for messages from the extension
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'EXTRACT_STYLES') {
-    const styles = extractPageStyles();
-    sendResponse(styles);
+    try {
+      const styles = extractPageStyles();
+      sendResponse(styles);
+    } catch (error) {
+      sendResponse({
+        error: error instanceof Error ? error.message : 'Extraction failed',
+      });
+    }
   }
   return true;
 });

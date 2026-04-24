@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { setApiKey as saveApiKey } from '../lib/storage';
 import { Check, X } from 'lucide-react';
@@ -7,12 +7,25 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   const { apiKey, setApiKey } = useStore();
   const [inputKey, setInputKey] = useState(apiKey);
   const [saved, setSaved] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSave = async () => {
-    await saveApiKey(inputKey);
-    setApiKey(inputKey);
+    const normalizedKey = inputKey.trim();
+    await saveApiKey(normalizedKey);
+    setApiKey(normalizedKey);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = window.setTimeout(() => setSaved(false), 2000);
   };
 
   return (
@@ -46,7 +59,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2">
           <button
             onClick={handleSave}
-            disabled={!inputKey}
+            disabled={!inputKey.trim()}
             className="px-4 py-2 bg-white text-black text-xs font-medium rounded-md hover:bg-neutral-200 transition-colors disabled:opacity-50"
           >
             {saved ? (

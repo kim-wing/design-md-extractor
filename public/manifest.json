@@ -3,7 +3,7 @@
   "name": "Design.md Extractor",
   "version": "1.0.0",
   "description": "Extract DESIGN.md from any webpage using Gemini AI",
-  "permissions": ["storage", "activeTab", "sidePanel", "contextMenus"],
+  "permissions": ["storage", "activeTab", "sidePanel", "contextMenus", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
