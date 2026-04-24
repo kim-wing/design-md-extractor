@@ -1,6 +1,6 @@
 # Design.md Extractor
 
-> Open any webpage → AI extracts its design system → get a Stitch-format DESIGN.md you can use to build consistent UI.
+> Open any webpage → AI extracts its design system → get an enhanced DESIGN.md you can reuse for consistent AI-generated UI.
 
 ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)
@@ -15,15 +15,16 @@
 
 ### 这是什么
 
-Design.md Extractor 是一个 Chrome 扩展。打开任意网页，点击提取按钮，AI 自动分析页面设计系统（颜色、字体、间距、组件样式……），输出一份 Stitch 格式的 DESIGN.md 文件，你可以用它来构建风格一致的新 UI。
+Design.md Extractor 是一个 Chrome 扩展。打开任意网页，点击提取按钮，AI 自动分析页面设计系统（颜色、字体、间距、组件样式……），输出一份增强版 `DESIGN.md` 文件。这个版本更适合后续继续喂给 AI 生成 UI，而不只是做设计说明。
 
 ### 功能亮点
 
-- 🎨 **Stitch 格式输出** — 标准化的设计系统文档格式
+- 🎨 **增强版 DESIGN.md 输出** — 更适合 AI 连续生成 UI 的设计协议
 - 🌐 **提取完整设计要素** — 颜色、字体、CSS 变量、组件样式
 - ⚡ **一键复制/下载** — 生成后可直接复制或下载 markdown 文件
 - 🔒 **隐私优先** — API Key 仅存储在本地，不经过任何第三方服务器
-- 📜 **历史记录** — 自动保存最近提取的设计
+- 📜 **历史记录管理** — 自动保存最近提取的设计，支持单条删除和全部清空
+- 🛠 **提取更稳** — 内容脚本丢失时会自动重试注入，减少 “Receiving end does not exist” 报错
 
 ### 安装方法
 
@@ -40,7 +41,7 @@ git clone https://github.com/kim-wing/design-md-extractor.git
 cd design-md-extractor
 npm install
 npm run build
-# 构建完成后，使用 dist/ 文件夹
+# 构建完成后，加载 dist/ 文件夹
 ```
 
 #### 导入 Chrome
@@ -48,7 +49,7 @@ npm run build
 1. 打开 Chrome，地址栏输入 `chrome://extensions/` 并回车
 2. 右上角开启 **开发者模式**
 3. 点击左上角 **加载已解压的扩展程序**
-4. 选择解压后的文件夹（或 `dist/` 文件夹）
+4. 选择解压后的文件夹，或源码构建后的 `dist/` 文件夹
 5. 扩展图标出现在工具栏，安装完成 ✅
 
 ### 配置 API Key
@@ -64,7 +65,24 @@ npm run build
 2. 点击扩展图标
 3. 点击 **Extract DESIGN.md** 按钮
 4. 等待几秒，AI 分析完成
-5. 复制或下载生成的 DESIGN.md
+5. 复制、下载，或在历史记录中恢复之前生成的 DESIGN.md
+
+### 输出特点
+
+当前版本默认生成增强版 `DESIGN.md`，会尽量包含这些结构化信息：
+
+- `semanticRoles`
+- `effects`
+- `constraints`
+- `responsiveRules`
+- `components`
+- `Prompt Contract`
+
+相比传统“设计说明文”，这个版本更适合：
+
+- 反复生成多个页面时保持同一套设计语言
+- 作为后续 AI UI 生成的底层约束
+- 做 diff、lint 和设计回归检查
 
 ### 生成示例
 
@@ -157,15 +175,16 @@ The design philosophy is rooted in Apple’s "Human Interface Guidelines," empha
 
 ### What It Does
 
-Design.md Extractor is a Chrome extension. Open any webpage, click extract, and AI automatically analyzes the page's design system (colors, fonts, spacing, component styles…) and outputs a Stitch-format DESIGN.md file you can use to build consistent new UI.
+Design.md Extractor is a Chrome extension. Open any webpage, click extract, and AI automatically analyzes the page's design system (colors, fonts, spacing, component styles…) and outputs an enhanced `DESIGN.md` file. This version is meant to work as a reusable design contract for downstream AI UI generation, not just a visual summary.
 
 ### Features
 
-- 🎨 **Stitch format output** — Standardized design system documentation
+- 🎨 **Enhanced DESIGN.md output** — Better suited for repeated AI UI generation
 - 🌐 **Complete design extraction** — Colors, fonts, CSS variables, component styles
 - ⚡ **One-click copy/download** — Copy or download markdown after generation
 - 🔒 **Privacy-first** — API keys stored locally, never sent to third-party servers
-- 📜 **History** — Auto-saves recent extractions
+- 📜 **History management** — Auto-saves recent extractions with single-delete and clear-all
+- 🛠 **More reliable extraction** — Automatically retries content script injection when the page connection is missing
 
 ### Installation
 
@@ -182,7 +201,7 @@ git clone https://github.com/kim-wing/design-md-extractor.git
 cd design-md-extractor
 npm install
 npm run build
-# Use the dist/ folder after build
+# Load the dist/ folder after build
 ```
 
 #### Load into Chrome
@@ -190,7 +209,7 @@ npm run build
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Toggle on **Developer mode** (top-right corner)
 3. Click **Load unpacked** (top-left)
-4. Select the unzipped folder (or the `dist/` folder from source build)
+4. Select the unzipped folder, or the `dist/` folder from source build
 5. The extension icon appears in your toolbar — done ✅
 
 ### Configure Your API Key
@@ -206,7 +225,24 @@ npm run build
 2. Click the extension icon
 3. Click **Extract DESIGN.md**
 4. Wait a few seconds for AI analysis
-5. Copy or download the generated DESIGN.md
+5. Copy or download the generated DESIGN.md, or restore older results from history
+
+### Output Shape
+
+The current version aims to generate an enhanced `DESIGN.md` with structured sections such as:
+
+- `semanticRoles`
+- `effects`
+- `constraints`
+- `responsiveRules`
+- `components`
+- `Prompt Contract`
+
+This makes the file more useful for:
+
+- generating multiple screens with less design drift
+- feeding a stronger design contract into other AI tools
+- running lint, diff, and regression checks later
 
 ---
 
@@ -215,7 +251,7 @@ npm run build
 - **React 18** + **TypeScript** + **Vite**
 - **Tailwind CSS v4** · **Zustand**
 - Chrome Extension Manifest V3
-- **Gemini API** (`gemini-3-flash-preview`)
+- **Gemini API** for enhanced DESIGN.md generation
 
 ---
 
