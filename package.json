@@ -1,6 +1,6 @@
 {
   "name": "design-md-extension",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Chrome Extension - Extract DESIGN.md from any webpage using AI",
   "type": "module",
   "scripts": {
