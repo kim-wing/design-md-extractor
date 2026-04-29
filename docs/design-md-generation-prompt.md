@@ -10,6 +10,8 @@ It assumes the extractor can supply:
 - sampled colors
 - sampled fonts
 - sampled CSS variables
+- sampled typography roles
+- sampled component, navigation, media, motion, and layout evidence
 
 ## Recommended System Prompt
 
@@ -47,14 +49,15 @@ Output requirements:
   - `responsiveRules`
   - `components`
 - After YAML, write markdown sections in this order when relevant:
-  - `## Overview`
-  - `## Colors`
-  - `## Typography`
-  - `## Layout`
-  - `## Elevation & Depth`
-  - `## Shapes`
-  - `## Components`
+  - `## Visual Theme & Atmosphere`
+  - `## Color Palette & Roles`
+  - `## Typography Rules`
+  - `## Component Stylings`
+  - `## Layout Principles`
+  - `## Depth & Elevation`
   - `## Do's and Don'ts`
+  - `## Responsive Behavior`
+  - `## Agent Prompt Guide`
   - `## Prompt Contract`
 
 Authoring rules:
@@ -71,6 +74,7 @@ Authoring rules:
 - Use `constraints` for hard guardrails such as max accent colors, limited font weights, contrast, and allowed corner radius families.
 - Use `responsiveRules` only when the page structure suggests mobile/desktop behavior.
 - Use `components` only for component families that have enough evidence to define reusable behavior.
+- Add an `Agent Prompt Guide` with quick color references, matching-UI instructions, and anti-drift warnings.
 - When evidence is missing, omit the token rather than hallucinating.
 
 Inference policy:
@@ -113,6 +117,11 @@ Evidence:
 - Colors: {{colors}}
 - Fonts: {{fonts}}
 - CSS Variables: {{css_variables}}
+- Typography Samples: {{typography_samples}}
+- Component Samples: {{component_samples}}
+- Navigation Samples: {{navigation_samples}}
+- Image / Media Treatment: {{image_treatment}}
+- Motion Styles: {{motion_styles}}
 
 Focus on producing a stable design system for future AI-generated UI.
 
@@ -146,6 +155,7 @@ Requirements:
 - Include concrete tokens only when supported by evidence.
 - Normalize raw values into semantic roles.
 - Add explicit constraints to reduce generation drift.
+- Follow the extended DESIGN.md section style used by curated libraries: visual theme, color roles, typography hierarchy, components, layout, depth, guardrails, responsive behavior, and agent prompt guide.
 - Keep the markdown body concise and actionable.
 
 YAML groups to use when supported:
@@ -163,14 +173,15 @@ YAML groups to use when supported:
 - components
 
 Markdown sections to use in order:
-- Overview
-- Colors
-- Typography
-- Layout
-- Elevation & Depth
-- Shapes
-- Components
+- Visual Theme & Atmosphere
+- Color Palette & Roles
+- Typography Rules
+- Component Stylings
+- Layout Principles
+- Depth & Elevation
 - Do's and Don'ts
+- Responsive Behavior
+- Agent Prompt Guide
 - Prompt Contract
 
 Rules:

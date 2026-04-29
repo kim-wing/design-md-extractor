@@ -13,6 +13,7 @@ interface ExtractedStylePayload {
   colors: string[];
   fonts: string[];
   cssVariables: Record<string, string>;
+  typographyScale?: Array<Record<string, string>>;
   spacingScale: string[];
   borderRadiusScale: string[];
   shadowStyles: string[];
@@ -23,6 +24,9 @@ interface ExtractedStylePayload {
   buttons: Array<Record<string, string>>;
   inputs: Array<Record<string, string>>;
   surfaces: Array<Record<string, string>>;
+  navigation?: Array<Record<string, string>>;
+  imageTreatment?: Array<Record<string, string>>;
+  motionStyles?: string[];
 }
 
 interface BackgroundMessageResponse<T> {

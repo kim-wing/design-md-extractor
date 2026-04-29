@@ -61,6 +61,36 @@ function compactComponentSamples(
   }));
 }
 
+function compactTypographySamples(
+  samples: Array<Record<string, string>> | undefined,
+  limit: number
+): Array<Record<string, string>> {
+  return (samples || []).slice(0, limit).map((sample) => ({
+    role: sample.role,
+    fontFamily: sample.fontFamily,
+    fontSize: sample.fontSize,
+    fontWeight: sample.fontWeight,
+    lineHeight: sample.lineHeight,
+    letterSpacing: sample.letterSpacing,
+    textTransform: sample.textTransform,
+  }));
+}
+
+function compactVisualSamples(
+  samples: Array<Record<string, string>> | undefined,
+  limit: number
+): Array<Record<string, string>> {
+  return (samples || []).slice(0, limit).map((sample) => ({
+    borderRadius: sample.borderRadius,
+    objectFit: sample.objectFit,
+    aspectRatio: sample.aspectRatio,
+    boxShadow: sample.boxShadow,
+    overflow: sample.overflow,
+    backgroundSize: sample.backgroundSize,
+    backgroundPosition: sample.backgroundPosition,
+  }));
+}
+
 export async function generateDesignMd(
   apiKey: string,
   extractedStyle: {
@@ -69,6 +99,7 @@ export async function generateDesignMd(
     colors: string[];
     fonts: string[];
     cssVariables: Record<string, string>;
+    typographyScale?: Array<Record<string, string>>;
     spacingScale: string[];
     borderRadiusScale: string[];
     shadowStyles: string[];
@@ -79,14 +110,19 @@ export async function generateDesignMd(
     buttons: Array<Record<string, string>>;
     inputs: Array<Record<string, string>>;
     surfaces: Array<Record<string, string>>;
+    navigation?: Array<Record<string, string>>;
+    imageTreatment?: Array<Record<string, string>>;
+    motionStyles?: string[];
   }
 ): Promise<string> {
   const colors = limitArray(extractedStyle.colors || [], 12);
   const fonts = limitArray(extractedStyle.fonts || [], 8);
   const cssVars = compactRecord(extractedStyle.cssVariables || {}, 30);
+  const typographyScale = compactTypographySamples(extractedStyle.typographyScale, 8);
   const spacingScale = limitArray(extractedStyle.spacingScale || [], 8);
   const borderRadiusScale = limitArray(extractedStyle.borderRadiusScale || [], 6);
   const shadowStyles = limitArray(extractedStyle.shadowStyles || [], 4);
+  const motionStyles = limitArray(extractedStyle.motionStyles || [], 6);
   const layoutHints = {
     maxWidthCandidates: limitArray(
       extractedStyle.layoutHints?.maxWidthCandidates || [],
@@ -97,11 +133,13 @@ export async function generateDesignMd(
   const buttons = compactComponentSamples(extractedStyle.buttons || [], 2);
   const inputs = compactComponentSamples(extractedStyle.inputs || [], 2);
   const surfaces = compactComponentSamples(extractedStyle.surfaces || [], 2);
+  const navigation = compactComponentSamples(extractedStyle.navigation || [], 2);
+  const imageTreatment = compactVisualSamples(extractedStyle.imageTreatment, 4);
 
   const prompt = `You are a senior design systems architect.
 Convert webpage style evidence into an enhanced DESIGN.md optimized for downstream AI UI generation.
 
-Write a design contract, not a loose design summary.
+Write a design contract, not a loose design summary. Follow the extended DESIGN.md pattern used by curated design-system libraries: mood, semantic color roles, complete typography hierarchy, components with states, layout principles, depth, responsive behavior, and an agent prompt guide.
 
 Input Evidence:
 - URL: ${extractedStyle.url}
@@ -109,13 +147,17 @@ Input Evidence:
 - Colors: ${colors.length > 0 ? colors.join(', ') : 'Not detected'}
 - Fonts: ${fonts.length > 0 ? fonts.join(', ') : 'Not detected'}
 - CSS Variables: ${JSON.stringify(cssVars, null, 2)}
+- Typography Samples: ${typographyScale.length > 0 ? JSON.stringify(typographyScale, null, 2) : 'Not detected'}
 - Spacing Scale: ${spacingScale.length > 0 ? spacingScale.join(', ') : 'Not detected'}
 - Border Radius Scale: ${borderRadiusScale.length > 0 ? borderRadiusScale.join(', ') : 'Not detected'}
 - Shadow Styles: ${shadowStyles.length > 0 ? shadowStyles.join(' | ') : 'Not detected'}
+- Motion Styles: ${motionStyles.length > 0 ? motionStyles.join(' | ') : 'Not detected'}
 - Layout Hints: ${JSON.stringify(layoutHints, null, 2)}
 - Button Samples: ${JSON.stringify(buttons, null, 2)}
 - Input Samples: ${JSON.stringify(inputs, null, 2)}
 - Surface Samples: ${JSON.stringify(surfaces, null, 2)}
+- Navigation Samples: ${JSON.stringify(navigation, null, 2)}
+- Image / Media Treatment: ${imageTreatment.length > 0 ? JSON.stringify(imageTreatment, null, 2) : 'Not detected'}
 
 Output requirements:
 - Output markdown only.
@@ -124,6 +166,7 @@ Output requirements:
 - Normalize raw values into semantic roles.
 - Add explicit constraints to reduce generation drift.
 - Keep the markdown body concise and actionable.
+- Include "inspired by" language for third-party sites; do not imply this is an official design system.
 
 YAML groups to use when supported:
 - version
@@ -140,14 +183,15 @@ YAML groups to use when supported:
 - components
 
 Markdown sections to use in order:
-- ## Overview
-- ## Colors
-- ## Typography
-- ## Layout
-- ## Elevation & Depth
-- ## Shapes
-- ## Components
+- ## Visual Theme & Atmosphere
+- ## Color Palette & Roles
+- ## Typography Rules
+- ## Component Stylings
+- ## Layout Principles
+- ## Depth & Elevation
 - ## Do's and Don'ts
+- ## Responsive Behavior
+- ## Agent Prompt Guide
 - ## Prompt Contract
 
 Rules:
@@ -161,9 +205,17 @@ Rules:
 - Prefer 4-8 meaningful typography tokens instead of listing every variation.
 - Use spacing, radius, shadow, and sampled component evidence to infer reusable scales.
 - Infer layout density and container width only when the layout hints support it.
+- Use typography samples to create a full hierarchy table when enough roles are detected.
+- Define navigation and media/image rules only when the evidence supports them.
+- Capture motion and hover behavior only when transitions or component evidence supports it.
 - Only include effects, responsive rules, and component definitions when the evidence supports them.
 - Do not dump raw CSS variables directly into the final output.
 - Do not output code fences or any explanation outside the DESIGN.md file.
+
+In ## Agent Prompt Guide, provide:
+- Quick color reference with semantic names.
+- 3-5 short agent instructions for generating matching UI.
+- 3-5 anti-drift warnings.
 
 In ## Prompt Contract, state that:
 1. YAML token values are normative.

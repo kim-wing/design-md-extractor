@@ -143,6 +143,63 @@ function summarizeStyle(style) {
   };
 }
 
+function summarizeTypography(style) {
+  return {
+    fontFamily: style.fontFamily,
+    fontSize: style.fontSize,
+    fontWeight: style.fontWeight,
+    lineHeight: style.lineHeight,
+    letterSpacing: style.letterSpacing,
+    textTransform: style.textTransform,
+  };
+}
+
+function collectTypographyScale() {
+  const selectors = [
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'p',
+    'li',
+    'a',
+    'button',
+    'label',
+    '[class*="title"]',
+    '[class*="heading"]',
+    '[class*="headline"]',
+  ];
+  const counter = new Map();
+
+  Array.from(document.body.querySelectorAll(selectors.join(',')))
+    .slice(0, 160)
+    .forEach((el) => {
+      const style = window.getComputedStyle(el);
+      const size = getPxValue(style.fontSize);
+
+      if (!size || size < 10 || size > 96) {
+        return;
+      }
+
+      const tagName = el.tagName.toLowerCase();
+      const role = ['h1', 'h2', 'h3', 'h4'].includes(tagName)
+        ? tagName
+        : tagName === 'button' || el.getAttribute('role') === 'button'
+          ? 'control'
+          : tagName === 'label'
+            ? 'label'
+            : 'body';
+      const summary = {
+        role,
+        ...summarizeTypography(style),
+      };
+
+      incrementCounter(counter, JSON.stringify(summary));
+    });
+
+  return getTopEntries(counter, 8).map((entry) => JSON.parse(entry));
+}
+
 function collectComponentSummaries(selectors, limit) {
   return Array.from(document.querySelectorAll(selectors))
     .slice(0, limit)
@@ -151,6 +208,72 @@ function collectComponentSummaries(selectors, limit) {
       styles.findIndex((candidate) => JSON.stringify(candidate) === JSON.stringify(style)) === index
     )
     .slice(0, 4);
+}
+
+function collectNavigationSummaries() {
+  return collectComponentSummaries('header, nav, [role="navigation"], [class*="nav"], [class*="menu"]', 10);
+}
+
+function collectImageTreatment(elements) {
+  const counter = new Map();
+
+  Array.from(document.querySelectorAll('img, video, picture, [class*="media"], [class*="hero"]'))
+    .slice(0, 80)
+    .forEach((el) => {
+      const style = window.getComputedStyle(el);
+      const radius = style.borderRadius;
+      const objectFit = style.objectFit;
+      const aspectRatio = style.aspectRatio;
+      const boxShadow = style.boxShadow;
+      const overflow = style.overflow;
+      const summary = JSON.stringify({
+        borderRadius: radius,
+        objectFit,
+        aspectRatio,
+        boxShadow,
+        overflow,
+      });
+      incrementCounter(counter, summary);
+    });
+
+  if (counter.size === 0) {
+    elements.slice(0, 120).forEach((el) => {
+      const style = window.getComputedStyle(el);
+      const backgroundImage = style.backgroundImage;
+      if (backgroundImage && backgroundImage !== 'none') {
+        incrementCounter(counter, JSON.stringify({
+          backgroundSize: style.backgroundSize,
+          backgroundPosition: style.backgroundPosition,
+          borderRadius: style.borderRadius,
+          boxShadow: style.boxShadow,
+        }));
+      }
+    });
+  }
+
+  return getTopEntries(counter, 5).map((entry) => JSON.parse(entry));
+}
+
+function collectMotionStyles(elements) {
+  const counter = new Map();
+
+  elements.slice(0, 250).forEach((el) => {
+    const style = window.getComputedStyle(el);
+    const transition = style.transition;
+    const animation = style.animationName && style.animationName !== 'none'
+      ? `${style.animationName} ${style.animationDuration} ${style.animationTimingFunction}`
+      : '';
+
+    if (transition && transition !== 'all 0s ease 0s') {
+      incrementCounter(counter, transition);
+    }
+
+    if (animation) {
+      incrementCounter(counter, animation);
+    }
+  });
+
+  return getTopEntries(counter, 6);
 }
 
 function extractLayoutHints(elements) {
@@ -213,6 +336,7 @@ function extractPageStyles() {
     colors: getUniqueColors(elements),
     fonts: getUniqueFonts(elements),
     cssVariables: extractCssVariables(),
+    typographyScale: collectTypographyScale(),
     spacingScale: collectScale(elements, [
       'marginTop',
       'marginBottom',
@@ -244,6 +368,9 @@ function extractPageStyles() {
     buttons: collectComponentSummaries('button, [role="button"], input[type="button"], input[type="submit"], a[class*="button"]', 12),
     inputs: collectComponentSummaries('input, textarea, select', 12),
     surfaces: collectComponentSummaries('main, section, article, aside, nav, [class*="card"], [class*="panel"]', 16),
+    navigation: collectNavigationSummaries(),
+    imageTreatment: collectImageTreatment(elements),
+    motionStyles: collectMotionStyles(elements),
   };
 }
 
